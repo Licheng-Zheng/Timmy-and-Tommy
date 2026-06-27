@@ -7,6 +7,8 @@ Additionally, it automatically computes the user's profile, which is injected in
 
 Live Application: [Link to Timmy](http://143.198.183.98:8000/)
 (The site is hosted live on DigitalOcean. To avoid high fees, it can support up to about 5 people using it at the same time (assuming they're not spamming it, in which case the slowapi limits kick in and allows 2 people to use it at once))
+<img width="1855" height="923" alt="image" src="https://github.com/user-attachments/assets/85c56d4c-695e-4e4a-be38-33d8bc558bb4" />
+
 
 
 #### Some Terminology Use 
@@ -89,14 +91,17 @@ Transformers have more or less completely replaced RNNs in Natural Language Proc
 Additionally, transformers require far more compute resources than RNNs (the current RNNs are only about 100 kb each, and are in my Digital Ocean CPU server), if I wanted to use transformers I would have to rent out a GPU server, which are far more expensive and do about the same thing.
 
 
-
 **Current Layers**
 There are currently two RNN layers that are being used by the models. These are used to figure out the user's persona (which changes how specific the response should be), and the model's persona (my first attempt at "simulating" emotion for an LLM)
 The first and second RNNs only serve as prompt injection functions. I don't have access to the weights hosted on Groq, so this is the only way I can modify its behavior. 
 
-1. User Persona RNN (Timmy and Tommy): Calculates the user's semantic intent and maps it to one of the personas (currently there are only 4) in a 64-dimensional latent space (I want to add many new personas in the future, which is why the latent space is a much higher dimension than is currently required).
+1. User Persona RNN (Timmy and Tommy): Calculates the user's semantic intent and maps it to one of the personas (currently there are only 4) in a 64-dimensional latent space (I want to add many new personas in the future, which is why the latent space is a much higher dimension than is currently required). After providing a industry specific prompt, it places the user vector and calculates the nearest persona vector.
+<img width="420" height="297" alt="image" src="https://github.com/user-attachments/assets/785a6ea5-8034-46e3-bfd9-f6a72930b1a3" />
 
-2. Emotional RNN (Timmy): Modifies a vector depending on user input to change the state of the model. These vectors are then interpreted into English to be injected into the context window. 
+2. Emotional RNN (Timmy): Modifies a vector depending on user input to change the state of the model. These vectors are then interpreted into English to be injected into the context window. After sending "hi" multiple times, its annoyance and traits increase. These properties are usually removed from training sets (and also penalized by post training/fine-tuning), so it is interesting to see if I can add it back in.
+<img width="430" height="227" alt="image" src="https://github.com/user-attachments/assets/4aa916c2-1a12-4f62-8735-47c334b2fa6a" />
+
+
 
 **Future Layers to create** 
 1. Safety Layer (Tommy): Currently, vectors are found regardless of how dissimilar to the user query the vector is (I am using the top-k results, so it will always find the top k results). Because Tommy is meant to be more of a tool and less of a fun chat, I am going to implement a layer that rejects queries that the model can't support. (This can be done with the similarity values, but I've noticed it is always very high, hence the need of another model to catch this)
@@ -130,6 +135,29 @@ This was one of the concerns that I had when I was creating the project: "If I j
 I first used Modal (a cloud provider) to host my own model, and to spin up on a query from the front end. However, using this method doesn't provide me any guardrails for someone creating a script to drive up my cloud costs. Additionally, hosting the large models (OSS 120b) would require me to use the expensive B200 GPUs, which would quickly drain my budget. The GPU would also be very underutilized in this project. 
 
 I finally decided to go with Groq instead, it has a very generous free tier, runs faster than cloud GPUs (there is no cold start -> the cold start alone would be a couple minutes because of the large model sizes) and provides an easily accessible API to get responses from. Alas, I have swallowed my pride for a service that is free. 
+
+Metrics shown by Groq API: 
+### Real-Time Inference Telemetry
+
+The frontend features a custom telemetry dashboard that surfaces live hardware and inference metrics directly from the Groq API and the local vector database. This provides complete visibility into the pipeline's performance and unit economics on every query.
+
+![Hardware Information From Groq API](image_a77ce2.png)
+
+(will change this so the labels make more sense in the future)
+| Metric | Value (from Image) | Description |
+| :--- | :--- | :--- |
+| **Latency (TTFT)** | `0.61 s` | Time To First Token |
+| **Throughput** | `441.5 T/s` | Generation speed in Tokens per Second, highlighting the raw speed of Groq's LPUs over traditional cloud GPUs. |
+| **Prompt Speed** | `17621 T/s` | The processing speed of the input prompt (including injected HNSW vectors and persona constraints). |
+| **Queue Time** | `0.587 s` | Time spent waiting in the Groq API queue before processing begins. |
+| **Completion Time** | `0.10 s` | The actual compute time taken by the hardware to generate the output tokens. |
+| **Total API Time** | `0.13 s` | End-to-end network latency for the API request round-trip. |
+| **Tokens (In / Out)** | `452 / 44` | The size of the injected RAG context versus the generated response. |
+| **CTX Window** | `5.52 %` | The percentage of the model's total context window utilized by the query. |
+| **DB Fetch** | `0.108 s` | Time taken for the local ChromaDB to traverse the HNSW graph and retrieve relevant vectors. |
+
+<img width="422" height="381" alt="image" src="https://github.com/user-attachments/assets/8e068411-4774-4687-8b33-795f7d9fd149" />
+
 
 **Changes Along the Way**
 - Initial user interface made by Streamlit, but this doesn't create a lot of customizability options, so I switched over to a FastAPI backend and a Tailwind CSS and HTML front end (Gemini did a lot of work on that, and I changed a couple things for that). 
