@@ -141,7 +141,7 @@ Metrics shown by Groq API:
 
 The frontend features a custom telemetry dashboard that surfaces live hardware and inference metrics directly from the Groq API and the local vector database. This provides complete visibility into the pipeline's performance and unit economics on every query.
 
-![Hardware Information From Groq API](image_a77ce2.png)
+![Hardware Information From Groq API](image_a77ce2.png) 
 
 (will change this so the labels make more sense in the future)
 | Metric | Value (from Image) | Description |
