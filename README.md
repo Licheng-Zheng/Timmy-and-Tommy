@@ -6,7 +6,7 @@ Timmy & Tommy are meant to be research assistants using retrieval-augmented gene
 Additionally, it automatically computes the user's profile, which is injected into the context window of the model to provide the final prompt. 
 
 Live Application: [Link to Timmy](http://143.198.183.98:8000/)
-(The site is hosted live on DigitalOcean. To avoid high fees, it can support up to about 5 people using it at the same time (assuming they're not spamming it, in which case the slowapi limits kick in and allow 2 people to use it at once))
+(The site is hosted live on DigitalOcean. To avoid high fees, it can support up to about 5 people using it at the same time (assuming they're not spamming it, in which case the slowapi limits kick in and allows 2 people to use it at once))
 
 
 #### Some Terminology Use 
@@ -39,20 +39,20 @@ sequenceDiagram
 ```mermaid
 graph LR
     A[User Query] --> B[FastAPI Backend]
-    B --> C[Tommy Cognitive RNN]
-    C -->|Calculates Baseline| D[Timmy Emotional RNN]
-    D -->|Generates Trait Vector| E[ChromaDB]
-    E -->|Injects Facts & Emotion| F[Groq LPU]
-    F --> G[Streamed Response]
+    B --> C[User RNN]
+    C --> D[Emotional RNN]
+    D --> E[ChromaDB]
+    E -->|Injects Facts & Emotion| F[Groq API]
+    F --> G[Response]
 ```
 **Tommy Architecture**
 ```mermaid
 graph LR
     A[User Query] --> B[FastAPI Backend]
-    B --> C[Tommy Cognitive RNN]
+    B --> C[User RNN]
     C -->|Extracts Persona & Context| D[ChromaDB]
-    D -->|Injects Facts| E[Groq LPU]
-    E --> F[Streamed Response]
+    D -->|Injects Facts| E[Groq API]
+    E --> F[Response]
 ```
 
 ##### RNN Layers
