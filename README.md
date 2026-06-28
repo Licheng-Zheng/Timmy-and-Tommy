@@ -12,6 +12,32 @@ Live Application: [Link to Timmy](http://143.198.183.98:8000/)
 #### Some Terminology Use 
 - Vectors: I occasionally use "vector" to represent claim. This is because in the ChromaDB vector database, each entry is represented by a vector, which is used to perform search with. This vector has an id (a link) back to the original claim that produced that vector (the claim gets passed through something called an embedder to create the vector, the vector is also known as an embedding)
 
+### Industry Performance Metrics 
+Instead of just relying on me saying it works, I will be adding benchmarks here in the future. All tests are provided from YLab in their **Bridge Benchmark**, accessed through their Hugging Face page. Here is where the tests are held: [YLab-Open/Bridge-Open](https://huggingface.co/datasets/YLab-Open/BRIDGE-Open/blob/main/Example.zip). 
+
+Future iterations of Timmy and Tommy (and other models of the Timmy and Tommy family when I get to those), will be benchmarked using these benchmarks. 
+
+Reference: Wu, J., Gu, B., et al. BRIDGE: benchmarking large language models for understanding real-world clinical practice texts. Nature Biomedical Engineering (2026).
+
+Currently, the model's database is not complete (I am currently migrating over to a different database type), so I'm only completing one example test until then. 
+
+1. Dataset: MEDIQA 2019-RQE (NLI) 
+    - Accuracy: 100.00%
+    - **Total Graded: 5 (there are only 5 questions in the example test dataset)** (Timmy has yet to conquer the medical field)
+    - Text provided to the model: Testing Query 5...
+Given the following two clinical questions labeled as "Question A" and "Question B", determine if the answer to "Question B" is also the answer to "Question A", either exactly or partially.
+Return your answer in the following format. DO NOT GIVE ANY EXPLANATION:
+answer: label
+The optional list for "label" is ["true", "false"]. 
+Question A: "Can Tegretol raise the gamma-glutamyl transferase?"
+Question B: "Can Tegretol raise the gamma-glutamyl transferase?"
+
+For my benchmark methodology, see benchmark.md in this repo. 
+
+This is mostly to check that the model works, not to vouch for the actual performance of the model. I will eventually put this into a nice table. 
+
+
+
 ### Project Architecture
 User queries are interpreted by multiple RNNs along the way (additional layers will be added in the future), before relevant claims are found in the vector database. 
 
@@ -158,7 +184,7 @@ Multi-shot prompts: Currently, Timmy only prompts a single time, it finds simila
 
 CPU-Based Reranking: Adding a cross-encoder (ms-marco-MiniLM) to re-score the initial ChromaDB retrieval results before final LLM synthesis to maximize source accuracy.
 
-#### Cost Breakdown 
+### Cost Breakdown 
 (If I had actually used it with the normal costs, not counting credits. I will indicate where my credits are from (I have not spent any money on anything here))
 
 One Time (if you never retrain or augment dataset):
@@ -212,3 +238,5 @@ Local CPU training will be listed as free because I can't quanitfy the amount of
     - `meta-llama/llama-4-scout-17b-16e-instruct`: 0.11/M tokens input and 0.34/M tokens output
     - `llama-3.3-70b-versatile`: 0.59/M tokens input and 0.79/M tokens output
     - On the free plan so the resources are free for a certain limit 
+
+
