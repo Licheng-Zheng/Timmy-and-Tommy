@@ -1,6 +1,6 @@
 This is where I'll document my changes made so you/I can better see what changes along the way (most recent first)
 
-2026 July 1 
+2026 July 1 - Happy Canada Day! :D
 - Connected QDrant DB from ChromaDB
     - For some reason, QDrant DB doesn't return any vectors (always very low similarity scores) ----->>> Lowered require confidence values, Chroma DB uses L2 Loss (always very high) while QDrant uses Cosine Similarity (Which is much harder to get high)
 - Artificially modified user personas to make them more accurate
