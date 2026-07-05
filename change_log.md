@@ -1,9 +1,14 @@
 This is where I'll document my changes made so you/I can better see what changes along the way (most recent first)
 
+2026 July 5 
+- Added most files into this repo 
+
 2026 July 1 - Happy Canada Day! :D
 - Connected QDrant DB from ChromaDB
     - For some reason, QDrant DB doesn't return any vectors (always very low similarity scores) ----->>> Lowered require confidence values, Chroma DB uses L2 Loss (always very high) while QDrant uses Cosine Similarity (Which is much harder to get high)
+    - Switched to On-Disk Storage from RAM to allow for more vectors 
 - Artificially modified user personas to make them more accurate
+- 
 
 2026 June 30 
 - Switched to QDrant Vector Database from ChromaDB 

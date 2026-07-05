@@ -1,0 +1,19 @@
+# Communicate the front end with the backend to the inference provider and to rate limit api requests 
+fastapi
+uvicorn
+slowapi
+
+# used to calculate embeddings for the vector database, the PCA for the front end
+torch
+sentence-transformers
+scikit-learn
+numpy
+
+# the vector database, the inference api, and the buffer for the vector database (so info doesn't get dumped in by the scrapers all at once)
+qdrant-client
+groq
+redis
+
+# For environment variables and for the cloud compute 
+python-dotenv
+modal

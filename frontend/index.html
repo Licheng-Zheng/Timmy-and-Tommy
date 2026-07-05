@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timmy: Cognitive Research Engine</title>
+    <!-- In your <head> -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">   
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+    
+    
+    <!-- Tailwind CSS + Typography Plugin (for formatting Markdown) -->
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    
+    <!-- Python reader to see the model used --> 
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+
+    <!-- Plotly for the 3D Latent Space Graph -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Marked.js for Markdown Parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- KaTeX for Math/LaTeX Rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <script>
+        
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                        serif: ['Georgia', 'Cambria', '"Times New Roman"', 'Times', 'serif'],
+                        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Brutalist Tooltip CSS (Fixed to pop downwards and prevent clipping) */
+        .tooltip-container { position: relative; cursor: help; }
+        .tooltip-box {
+            visibility: hidden;
+            background-color: #000;
+            color: #fff;
+            text-align: center;
+            padding: 8px 12px;
+            position: absolute;
+            z-index: 9999;
+            top: 125%; /* Pops downward instead of upward */
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.2s;
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 10px;
+            white-space: normal;
+            width: max-content;
+            max-width: 200px;
+            letter-spacing: 0.05em;
+            pointer-events: none; /* Prevents tooltip from blocking clicks */
+        }
+        .tooltip-box::after {
+            content: "";
+            position: absolute;
+            bottom: 100%; /* Arrow on top */
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: transparent transparent #000 transparent;
+        }
+        .tooltip-container:hover .tooltip-box {
+            visibility: visible;
+            opacity: 1;
+        }
+        .mermaid svg {
+            width: 100%;
+            max-width: 700px;
+            height: auto;
+            min-height: 200px;
+        }
+
+        /* Brutalist, square scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f9fafb; border-left: 1px solid #e5e7eb; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; }
+        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+        
+        .fade-in { animation: fadeIn 0.4s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-white text-gray-900 h-screen w-full overflow-hidden flex font-sans antialiased">
+
+    <!-- ========================================== -->
+    <!-- LEFT PANEL: ACADEMIC RESEARCH INTERFACE    -->
+    <!-- ========================================== -->
+    <div class="flex-1 flex flex-col border-r border-gray-300 relative bg-white min-w-0">
+        <!-- Header -->
+        <header class="bg-white border-b border-gray-300 p-5 flex items-center justify-between z-10 shrink-0">
+            <div class="flex items-center gap-4">
+                <div>
+                    <h1 class="font-bold text-xl tracking-tight">Timmy and Tommy</h1>
+                    <p class="text-xs text-gray-500 tracking-wider mt-1">RNNs and Database stored on Digital Ocean, inference provided from Groq API, (some) model weights stored on Hugging Face</p>
+                </div>
+            </div>
+            
+            <!-- Timmy vs Tommy Toggle Switch -->
+            <div class="flex border border-gray-300 text-xs font-bold uppercase tracking-widest">
+                <button id="btn-tommy" class="px-6 py-2 bg-black text-white transition-colors" onclick="setMode('tommy')">Tommy</button>
+                <button id="btn-timmy" class="px-6 py-2 bg-white text-gray-400 hover:text-black transition-colors" onclick="setMode('timmy')">Timmy</button>
+            </div>
+        </header>
+
+        <!-- Document / Chat History Wrappers -->
+        <div class="flex-1 relative bg-[#fafafa]">
+            
+            <!-- TOMMY SESSION CONTAINER -->
+            <div id="chat-history-tommy" class="absolute inset-0 overflow-y-auto p-10 space-y-12">
+                <div class="w-full max-w-4xl mx-auto text-justify font-serif leading-relaxed text-lg border-t-4 border-black pt-6">
+                    <p class="mb-4"><span class="font-bold text-black font-sans uppercase text-sm tracking-wider mr-2">Talking to Tommy </span> A lobotomized Timmy. Where there was an I, there is now <span class="font-['JetBrains_Mono',monospace]">0</span> </p>
+                </div>
+            </div>
+            
+            <!-- TIMMY SESSION CONTAINER (Hidden by default) -->
+            <div id="chat-history-timmy" class="absolute inset-0 overflow-y-auto p-10 space-y-12 hidden">
+                <div class="w-full max-w-4xl mx-auto text-justify font-serif leading-relaxed text-lg border-t-4 border-black pt-6">
+                    <p class="mb-4"><span class="font-bold text-black font-sans uppercase text-sm tracking-wider mr-2">Talking to Timmy</span> My attempt at creating a personality RNN. Number of times Timmy has been replaced: 1 </p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-6 bg-white border-t border-gray-300 shrink-0 z-10">
+            <form id="chat-form" class="relative max-w-4xl mx-auto flex gap-0 border border-gray-400 focus-within:border-black transition-colors">
+                <input type="text" id="user-input" autocomplete="off" placeholder="Enter research query..." 
+                    class="flex-1 bg-transparent text-gray-900 text-base px-6 py-4 focus:outline-none placeholder-gray-400 font-serif">
+                <button type="submit" id="send-btn" class="bg-black hover:bg-gray-800 text-white px-8 py-4 font-bold uppercase tracking-wider text-sm transition-colors flex items-center gap-2 disabled:opacity-50">
+                    <span>Execute</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- RIGHT PANEL: TELEMETRY & DEBUGGER          -->
+    <!-- ========================================== -->
+    <div class="w-[450px] bg-gray-50 flex flex-col shrink-0 border-l border-gray-300 h-screen overflow-y-auto overflow-x-hidden pb-10">
+        
+        <!-- Developer Overrides -->
+        <div class="p-5 border-b border-gray-300 bg-[#e5e5e5]">
+            <h2 class="text-[10px] font-bold text-black tracking-widest mb-3 flex items-center gap-2">
+                Set model Information yourself
+            </h2>
+            <div class="space-y-4">
+                <div>
+                    <div class="flex justify-between text-[10px] font-mono text-gray-600 uppercase mb-1">
+                        <span class="tooltip-container">Search Depth (HNSW)
+                            <span class="tooltip-box">Number of vectors returned by ChromaDB for simulation.</span>
+                        </span>
+                        <span id="val-depth" class="font-bold text-black">50</span>
+                    </div>
+                    <input type="range" id="input-depth" min="3" max="100" value="50" class="w-full accent-black cursor-pointer" oninput="document.getElementById('val-depth').innerText = this.value">
+                </div>
+                <div>
+                    <div class="flex justify-between text-[10px] font-mono text-gray-600 uppercase mb-1">
+                        <span class="tooltip-container">Tommy Persona Override
+                            <span class="tooltip-box">Force Tommy into a specific cognitive state (Bypasses RNN).</span>
+                        </span>
+                    </div>
+                    <select id="input-persona" class="w-full bg-white border border-gray-400 text-xs font-mono p-2 uppercase tracking-wide focus:outline-none focus:border-black cursor-pointer rounded-none">
+                        <option value="Auto">Auto (RNN Detected)</option>
+                        <option value="Layman_Curious">Layman Curious</option>
+                        <option value="Medical_Expert">Medical Expert</option>
+                        <option value="Systems_Mathematician">Systems Mathematician</option>
+                        <option value="Impatient_Frustrated">Impatient Frustrated</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-5 border-b border-gray-300 bg-white text-black">
+        <h2 class="text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2">
+            <i data-lucide="database" class="w-3 h-3"></i> Qdrant Vector Engine
+        </h2>
+        <div class="grid grid-cols-3 gap-4">
+            <div>
+                <p class="text-[9px] text-gray-500 font-mono uppercase tracking-wider mb-1">Status</p>
+                <p id="db-status" class="text-sm font-bold flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" id="db-status-dot"></span> 
+                    PINGING...
+                </p>
+            </div>
+            <div>
+                <p class="text-[9px] text-gray-500 font-mono uppercase tracking-wider mb-1">Total Vectors</p>
+                <p id="db-total" class="text-sm font-mono font-bold">---</p>
+            </div>
+            <div>
+                <p class="text-[9px] text-gray-500 font-mono uppercase tracking-wider mb-1">Est. Papers</p>
+                <p id="db-papers" class="text-sm font-mono font-bold">---</p>
+            </div>
+        </div>
+    </div>
+
+        <!-- Graph Section -->
+        <div class="p-5 border-b border-gray-300 bg-white">
+            <h2 class="text-[10px] font-bold text-black tracking-widest mb-3 flex items-center gap-2">
+                3-dimensional Principal Component Analysis (PCA) of your profile
+            </h2>
+            <div id="3d-plot" class="h-[200px] w-full bg-[#fafafa] border border-gray-300 overflow-hidden relative">
+                <div id="plot-placeholder" class="absolute inset-0 flex items-center justify-center text-xs text-gray-400 font-mono z-0">Awaiting vector data...</div>
+            </div>
+            
+            <div class="mt-3 bg-white border border-gray-300 p-3 flex justify-between items-center tooltip-container">
+                <p class="text-[9px] text-gray-500 font-mono uppercase tracking-wider">Your Detected User Profile:</p>
+                <p id="active-persona" class="text-black font-bold text-xs truncate tracking-widest">Provide a prompt to start</p>
+                <span class="tooltip-box">There are 4 different vectors (one per each persona), and depending on what you say, it predicts where you stand, and provides a (hopefully) suitable response </span>                
+            </div>
+        </div>
+
+        <!-- Cognitive Profile -->
+        <div id="panel-cognitive-profile" class="p-5 border-b border-gray-300 bg-[#fafafa] hidden">
+            <h2 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                <i data-lucide="brain" class="w-3 h-3"></i> Cognitive Profile
+            </h2>
+            <div class="space-y-3">
+                <div>
+                    <div class="flex justify-between text-[10px] font-mono text-gray-400 uppercase mb-1"><span>Sarcasm</span><span id="val-sarcasm">0.00</span></div>
+                    <div class="h-1.5 w-full bg-gray-200"><div id="bar-sarcasm" class="h-full bg-gray-400 transition-all duration-500" style="width: 0%"></div></div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-[10px] font-mono text-gray-400 uppercase mb-1"><span>Brevity</span><span id="val-brevity">0.00</span></div>
+                    <div class="h-1.5 w-full bg-gray-200"><div id="bar-brevity" class="h-full bg-gray-400 transition-all duration-500" style="width: 0%"></div></div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-[10px] font-mono text-gray-400 uppercase mb-1"><span>Pedantry</span><span id="val-pedantry">0.00</span></div>
+                    <div class="h-1.5 w-full bg-gray-200"><div id="bar-pedantry" class="h-full bg-gray-400 transition-all duration-500" style="width: 0%"></div></div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-[10px] font-mono text-gray-400 uppercase mb-1"><span>Humor</span><span id="val-humor">0.00</span></div>
+                    <div class="h-1.5 w-full bg-gray-200"><div id="bar-humor" class="h-full bg-gray-400 transition-all duration-500" style="width: 0%"></div></div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-[10px] font-mono text-gray-400 uppercase mb-1"><span>Annoyance</span><span id="val-annoyance">0.00</span></div>
+                    <div class="h-1.5 w-full bg-gray-200"><div id="bar-annoyance" class="h-full bg-gray-400 transition-all duration-500" style="width: 0%"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DENSE HARDWARE METRICS -->
+        <div class="p-5 border-b border-gray-300 bg-white">
+            <h2 class="text-[10px] font-bold text-black uppercase tracking-widest mb-3 flex items-center gap-2">
+                Hardware Information from Groq API 
+            </h2>
+            <div class="grid grid-cols-2 gap-2">
+                <div class="bg-white border border-gray-300 p-2 tooltip-container">
+                    <p class="text-[9px] text-gray-500 font-mono uppercase tracking-wider mb-1">Latency (TTFT)</p>
+                    <p class="text-base font-bold text-black"><span id="metric-ttft">0.00</span><span class="text-[10px] text-gray-500 ml-1 font-normal">s</span></p>
+                    <span class="tooltip-box">Time To First Token: Initial network and prompt processing latency. (does not count the time that it takes to reach your computer)</span>
+                </div>
+                <div class="bg-white border border-gray-300 p-2 tooltip-container">
+                    <p class="text-[9px] text-gray-500 font-mono uppercase tracking-wider mb-1">Throughput</p>
+                    <p class="text-base font-bold text-black"><span id="metric-tps">0</span><span class="text-[10px] text-gray-500 ml-1 font-normal">T/s</span></p>
+                    <span class="tooltip-box">Tokens Per Second: The generation speed of the Groq LPU.</span>
+                </div>
+                <div class="bg-white border border-gray-300 p-2 tooltip-container">
+                    <p class="text-[9px] text-gray-500 font-mono uppercase tracking-wider mb-1">Prompt Speed</p>
+                    <p class="text-base font-bold text-black"><span id="metric-prompt-speed">0</span><span class="text-[10px] text-gray-500 ml-1 font-normal">T/s</span></p>
+                    <span class="tooltip-box">Prompt Evaluation Speed: How fast the model understands the context window.</span>
+                </div>
+                <div class="bg-white border border-gray-300 p-2 tooltip-container">
+                    <p class="text-[9px] text-gray-500 font-mono uppercase tracking-wider mb-1">Queue Time</p>
+                    <p class="text-base font-bold text-black"><span id="metric-queue">0.00</span><span class="text-[10px] text-gray-500 ml-1 font-normal">s</span></p>
+                    <span class="tooltip-box">Queue Time: Network/System waiting time before processing started.</span>
+                </div>
+                <div class="bg-white border border-gray-300 p-2 tooltip-container">
+                    <p class="text-[9px] text-gray-500 font-mono uppercase tracking-wider mb-1">Completion Time</p>
+                    <p class="text-base font-bold text-black"><span id="metric-completion-time">0.00</span><span class="text-[10px] text-gray-500 ml-1 font-normal">s</span></p>
+                    <span class="tooltip-box">Completion Time: Total time spent generating the output tokens.</span>
+                </div>
+                <div class="bg-white border border-gray-300 p-2 tooltip-container">
+                    <p class="text-[9px] text-gray-500 font-mono uppercase tracking-wider mb-1">Total API Time</p>
+                    <p class="text-base font-bold text-black"><span id="metric-total">0.00</span><span class="text-[10px] text-gray-500 ml-1 font-normal">s</span></p>
+                    <span class="tooltip-box">End-to-End Compute: Total processing time on the hardware.</span>
+                </div>
+                <div class="bg-white border border-gray-300 p-2 tooltip-container">
+                    <p class="text-[9px] text-gray-500 font-mono uppercase tracking-wider mb-1">In Tokens</p>
+                    <p class="text-base font-bold text-black"><span id="metric-prompt">0</span></p>
+                    <span class="tooltip-box">Prompt Tokens: Total number of tokens sent in the LLM context window. (much larger than your actual prompt because it appends large amounts of additional data for the actual facts from the RAG and personalization (I don't have access to Groq's weights, so this is the only way I can control them)) </span>
+                </div>
+                <div class="bg-white border border-gray-300 p-2 tooltip-container">
+                    <p class="text-[9px] text-gray-500 font-mono uppercase tracking-wider mb-1">Out Tokens</p>
+                    <p class="text-base font-bold text-black"><span id="metric-completion">0</span></p>
+                    <span class="tooltip-box">Completion Tokens: Total text size generated by the LLM.</span>
+                </div>
+                <div class="bg-white border border-gray-300 p-2 tooltip-container">
+                    <p class="text-[9px] text-gray-500 font-mono uppercase tracking-wider mb-1">Ctx Window</p>
+                    <p class="text-base font-bold text-black"><span id="metric-context">0</span><span class="text-[10px] text-gray-500 ml-1 font-normal">%</span></p>
+                    <span class="tooltip-box">Percentage of the 8,192 token context window utilized.</span>
+                </div>
+                <div class="bg-white border border-gray-300 p-2 tooltip-container">
+                    <p class="text-[9px] text-gray-500 font-mono uppercase tracking-wider mb-1">DB Fetch</p>
+                    <p class="text-base font-bold text-black"><span id="metric-db">0.00</span><span class="text-[10px] text-gray-500 ml-1 font-normal">s</span></p>
+                    <span class="tooltip-box">ChromaDB Latency: Time taken to traverse the HNSW graph.</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ChromaDB Logs -->
+        <div class="p-5 flex flex-col bg-white">
+            <div class="tooltip-container mb-2">
+                <h2 class="text-[10px] font-bold text-black tracking-widest mb-3 flex items-center gap-2">
+                    Hierarchical Navigable Small World (HNSW) Traversal Logs
+                    <span class="tooltip-box">(The ChromaDB finds your vector location using a memory mapped database, which I can't access, so this is just a simulation of how it works) </span>
+
+                </h2>
+            </div>
+            <div id="chroma-logs" class="overflow-y-auto bg-[#fafafa] border border-gray-300 p-3 space-y-2 font-mono text-[9px] text-gray-600 max-h-[300px]">
+                <div class="text-gray-400 italic">See your vectors get found here</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- APPLICATION LOGIC                          -->
+    <!-- ========================================== -->
+    <script>
+        lucide.createIcons();
+
+        // --- CONFIGURATION & SESSION MANAGEMENT ---
+        const API_URL = "/api/chat";
+        
+        // We now generate TWO distinct session IDs so backend history never mixes
+        const SESSION_ID_TOMMY = "tommy_" + Math.random().toString(36).substring(7);
+        const SESSION_ID_TIMMY = "timmy_" + Math.random().toString(36).substring(7);
+        
+        let currentMode = "tommy"; 
+        let activeSessionId = SESSION_ID_TOMMY;
+
+        // --- DOM ELEMENTS ---
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const chromaLogs = document.getElementById('chroma-logs');
+        
+        const chatContainerTommy = document.getElementById('chat-history-tommy');
+        const chatContainerTimmy = document.getElementById('chat-history-timmy');
+        const panelCognitiveProfile = document.getElementById('panel-cognitive-profile');
+        let activeChatContainer = chatContainerTommy; // Tracks which chat div to print to
+        
+        // --- MODE TOGGLE LOGIC ---
+        function setMode(mode) {
+            currentMode = mode;
+            const btnTommy = document.getElementById('btn-tommy');
+            const btnTimmy = document.getElementById('btn-timmy');
+            
+            if(mode === 'tommy') {
+                btnTommy.className = "px-6 py-2 bg-black text-white transition-colors";
+                btnTimmy.className = "px-6 py-2 bg-white text-gray-400 hover:text-black transition-colors";
+                
+                // Swap visibility of the chat histories
+                chatContainerTommy.classList.remove('hidden');
+                chatContainerTimmy.classList.add('hidden');
+                panelCognitiveProfile.classList.add('hidden');
+                
+                activeChatContainer = chatContainerTommy;
+                activeSessionId = SESSION_ID_TOMMY;
+            } else {
+                btnTimmy.className = "px-6 py-2 bg-black text-white transition-colors";
+                btnTommy.className = "px-6 py-2 bg-white text-gray-400 hover:text-black transition-colors";
+                
+                // Swap visibility of the chat histories
+                chatContainerTimmy.classList.remove('hidden');
+                chatContainerTommy.classList.add('hidden');
+                panelCognitiveProfile.classList.remove('hidden');
+                
+                activeChatContainer = chatContainerTimmy;
+                activeSessionId = SESSION_ID_TIMMY;
+            }
+        }
+
+        // --- UI LOGIC: ACADEMIC RENDERER ---
+        function appendUserRequest(text) {
+            const reqId = 'req-' + Date.now();
+            const html = `
+                <div class="w-full text-center my-14 fade-in">
+                    <h2 class="font-bold text-3xl font-serif text-black leading-snug max-w-4xl mx-auto">${text}</h2>
+                    <div id="${reqId}" class="w-16 h-[2px] bg-black mx-auto mt-8 mb-4 transition-all duration-500"></div>
+                </div>
+            `;
+            // Appends only to the currently active session container!
+            activeChatContainer.insertAdjacentHTML('beforeend', html);
+            activeChatContainer.scrollTop = activeChatContainer.scrollHeight;
+            return reqId;
+        }
+
+        function appendAIResponse(text, logs, sources) {
+            const htmlContent = marked.parse(text);
+            let sourceHtml = '';
+            
+            if (sources && sources.length > 0) {
+                const accordions = sources.map(src => {
+                    // Format entities into tags
+                    const entityTags = src.entities.map(e => 
+                        `<span class="bg-gray-200 text-gray-800 px-1 py-0.5 rounded text-[9px] font-mono border border-gray-300">${e}</span>`
+                    ).join(' ');
+                    
+                    const medoidBadge = src.is_medoid ? `<span class="bg-black text-white px-1 py-0.5 text-[9px] font-bold tracking-widest uppercase">Graph Medoid</span>` : '';
+
+                    return `
+                    <details class="group bg-white border border-gray-300 mb-2 cursor-pointer transition-colors hover:border-black">
+                        <summary class="list-none p-3 text-xs font-mono font-bold flex justify-between items-center bg-[#fafafa] group-hover:bg-white">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="chevron-right" class="w-4 h-4 transition-transform group-open:rotate-90"></i>
+                                <span>Node ${src.id}</span>
+                                ${medoidBadge}
+                            </div>
+                            <div class="flex gap-4 text-gray-500 font-normal">
+                                <span>Sim: ${src.sim}%</span>
+                                <span>Conf: ${src.conf}</span>
+                            </div>
+                        </summary>
+                        <div class="p-4 border-t border-gray-300 text-xs font-sans leading-relaxed text-gray-700 bg-white">
+                            <p class="mb-3">${src.content}</p>
+                            <div class="flex flex-wrap gap-2 mb-3">
+                                ${entityTags}
+                            </div>
+                            <div class="bg-gray-100 p-2 font-mono text-[10px] text-gray-500 break-all border border-gray-200">
+                                LATENT_TENSOR_SLICE: [${src.vector_slice.join(', ')} ... ]
+                            </div>
+                        </div>
+                    </details>`;
+                }).join('');
+
+                sourceHtml = `
+                    <div class="mt-8 pt-6 border-t border-gray-300">
+                        <h4 class="text-[10px] font-bold font-sans uppercase tracking-widest text-black mb-3 flex items-center gap-2">
+                            <i data-lucide="microscope" class="w-3 h-3"></i> Retrieved Context Vectors
+                        </h4>
+                        ${accordions} </div>
+                `;
+            } else {
+                sourceHtml = `
+                    <div class="mt-8 pt-6 border-t border-gray-300 text-xs font-mono text-gray-500 italic">
+                        No high-confidence vectors recovered from database.
+                    </div>`;
+            }
+
+            const html = `
+                <div class="w-full max-w-4xl mx-auto mb-16 fade-in">
+                    <div class="prose prose-lg font-serif max-w-none text-justify text-gray-800 leading-relaxed">
+                        ${htmlContent}
+                    </div>
+                    ${sourceHtml}
+                </div>
+            `;
+            
+            activeChatContainer.insertAdjacentHTML('beforeend', html);
+            lucide.createIcons();
+            
+            renderMathInElement(activeChatContainer.lastElementChild, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false}
+                ],
+                throwOnError: false
+            });
+
+            activeChatContainer.scrollTop = activeChatContainer.scrollHeight;
+        }
+
+        function showAnalyzingIndicator() {
+            const id = 'analyzing-' + Date.now();
+            const html = `
+                <div id="${id}" class="w-full text-center my-12 font-serif text-gray-400 italic flex flex-col items-center gap-3">
+                    <i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>
+                    <span>Synthesizing cognitive state and vector data...</span>
+                </div>
+            `;
+            activeChatContainer.insertAdjacentHTML('beforeend', html);
+            lucide.createIcons();
+            activeChatContainer.scrollTop = activeChatContainer.scrollHeight;
+            return id;
+        }
+
+        // --- TELEMETRY LOGIC ---
+        function updateTelemetry(data) {
+            if(data.persona) document.getElementById('active-persona').innerText = data.persona;
+            
+            if(data.telemetry) {
+                document.getElementById('metric-ttft').innerText = data.telemetry.ttft ? data.telemetry.ttft.toFixed(2) : "0.00";
+                document.getElementById('metric-tps').innerText = data.telemetry.tps ? data.telemetry.tps.toFixed(1) : "0.0";
+                document.getElementById('metric-prompt-speed').innerText = data.telemetry.prompt_speed ? data.telemetry.prompt_speed.toFixed(0) : "0";
+                document.getElementById('metric-queue').innerText = data.telemetry.queue_time ? data.telemetry.queue_time.toFixed(3) : "0.00";
+                document.getElementById('metric-completion-time').innerText = data.telemetry.completion_time ? data.telemetry.completion_time.toFixed(2) : "0.00";
+                document.getElementById('metric-total').innerText = data.telemetry.total_time ? data.telemetry.total_time.toFixed(2) : "0.00";
+                
+                document.getElementById('metric-prompt').innerText = data.telemetry.prompt_tokens || "0";
+                document.getElementById('metric-completion').innerText = data.telemetry.completion_tokens || "0";
+                document.getElementById('metric-context').innerText = data.telemetry.context_utilization ? data.telemetry.context_utilization.toFixed(2) : "0";
+                document.getElementById('metric-db').innerText = data.telemetry.db_latency ? data.telemetry.db_latency.toFixed(3) : "0.00";
+            }
+
+            if(data.timmy_state) {
+                const updateBar = (id, val) => {
+                    document.getElementById(`val-${id}`).innerText = val.toFixed(2);
+                    const bar = document.getElementById(`bar-${id}`);
+                    bar.style.width = `${val * 100}%`;
+                    bar.className = `h-full transition-all duration-500 ${val > 0.7 ? 'bg-black' : 'bg-gray-400'}`;
+                };
+                updateBar('sarcasm', data.timmy_state.Sarcasm);
+                updateBar('brevity', data.timmy_state.Brevity);
+                updateBar('pedantry', data.timmy_state.Pedantry);
+                updateBar('humor', data.timmy_state.Humor);
+                updateBar('annoyance', data.timmy_state.Annoyance);
+            }
+
+            if(data.logs && data.logs.length > 0) {
+                if(chromaLogs.innerHTML.includes("Standing by")) chromaLogs.innerHTML = "";
+                
+                const logHtml = data.logs.map(log => {
+                    let colorClass = "text-gray-600";
+                    if(log.includes("LAYER 0")) colorClass = "text-black font-bold";
+                    if(log.includes("MATCH")) colorClass = "text-gray-900";
+                    
+                    return `<div class="border-b border-gray-200 pb-1 mb-1 break-words ${colorClass}">${log}</div>`;
+                }).join('');
+                chromaLogs.innerHTML = logHtml + chromaLogs.innerHTML; 
+            }
+            if(data.plot_data) render3DChart(data.plot_data);
+        }
+
+        function render3DChart(plotData) {
+            const placeholder = document.getElementById('plot-placeholder');
+            if (placeholder && plotData.centroids) {
+                placeholder.style.display = 'none';
+            }
+
+            const { centroids, trajectory, current_state } = plotData;
+            const traces = [];
+
+            if (centroids) {
+                traces.push({
+                    x: centroids.x, y: centroids.y, z: centroids.z,
+                    text: centroids.names,
+                    mode: 'markers+text',
+                    type: 'scatter3d',
+                    marker: { size: 5, color: ['#9ca3af', '#6b7280', '#4b5563', '#1f2937'], opacity: 0.9 },
+                    textposition: 'top center',
+                    textfont: { color: '#4b5563', size: 9, family: 'monospace' },
+                    name: 'Personas',
+                    hoverinfo: 'none'
+                });
+            }
+
+            if (trajectory && trajectory.x && trajectory.x.length > 0) {
+                traces.push({
+                    x: trajectory.x, y: trajectory.y, z: trajectory.z,
+                    mode: 'lines+markers',
+                    type: 'scatter3d',
+                    line: { color: '#000000', width: 2 },
+                    marker: { size: 3, color: '#000000' },
+                    name: 'History',
+                    hoverinfo: 'none'
+                });
+            }
+
+            if (current_state) {
+                traces.push({
+                    x: [current_state.x], y: [current_state.y], z: [current_state.z],
+                    mode: 'markers',
+                    type: 'scatter3d',
+                    marker: { size: 6, color: '#000000', symbol: 'diamond' },
+                    name: 'Current State',
+                    hoverinfo: 'none'
+                });
+            }
+
+            const layout = {
+                paper_bgcolor: 'transparent',
+                plot_bgcolor: 'transparent',
+                margin: { l: 0, r: 0, b: 0, t: 0 },
+                showlegend: false,
+                scene: {
+                    // Removed dragmode: false completely so you can freely rotate the graph
+                    xaxis: { showbackground: false, showgrid: true, gridcolor: '#e5e7eb', zerolinecolor: '#d1d5db', tickfont: {color: '#9ca3af', size: 8} },
+                    yaxis: { showbackground: false, showgrid: true, gridcolor: '#e5e7eb', zerolinecolor: '#d1d5db', tickfont: {color: '#9ca3af', size: 8} },
+                    zaxis: { showbackground: false, showgrid: true, gridcolor: '#e5e7eb', zerolinecolor: '#d1d5db', tickfont: {color: '#9ca3af', size: 8} },
+                    camera: { eye: {x: 1.5, y: 1.5, z: 1.2} }
+                }
+            };
+
+            // Added scrollZoom: false so it doesn't trap your mouse scroll wheel, but allows rotation clicking!
+            Plotly.newPlot('3d-plot', traces, layout, {displayModeBar: false, scrollZoom: false});
+        }
+
+        // --- MAIN API CALL ---
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            const reqId = appendUserRequest(text);
+            userInput.value = '';
+            sendBtn.disabled = true;
+            const indicatorId = showAnalyzingIndicator();
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 
+                        'X-API-Key': 'Timmy!'
+                    },
+                    body: JSON.stringify({
+                        session_id: activeSessionId, // Passes the currently active Session ID
+                        message: text,
+                        mode: currentMode,
+                        search_depth: parseInt(document.getElementById('input-depth').value),
+                        persona_override: document.getElementById('input-persona').value
+                    })
+                });
+
+                if (!response.ok) throw new Error("API Error: " + response.statusText);
+                
+                const data = await response.json();
+                document.getElementById(indicatorId).remove();
+                
+                const lineEl = document.getElementById(reqId);
+                if (lineEl) {
+                    const modelName = data.model || "llama-3.3-70b-versatile";
+                    const sourcesCount = data.retrieved_sources ?? (data.logs ? data.logs.filter(l => l.includes("[MATCH]")).length : 0);
+                    
+                    lineEl.className = "text-[10px] font-mono text-gray-500 uppercase tracking-widest mt-6 mb-4 fade-in";
+                    lineEl.innerHTML = `Model: <span class="text-black font-bold">${modelName}</span> &nbsp;|&nbsp; Sources: <span class="text-black font-bold">${sourcesCount}</span>`;
+                }
+
+                appendAIResponse(data.response, data.logs, data.sources);
+                updateTelemetry(data);
+
+            } catch (error) {
+                document.getElementById(indicatorId).remove();
+                appendAIResponse("⚠️ **System Error:** Could not connect to the backend logic engine.");
+                console.error(error);
+            } finally {
+                sendBtn.disabled = false;
+                userInput.focus();
+            }
+        });
+
+        // Initialize empty graph
+        render3DChart({});
+    
+        // Fetch DB Health on Load
+        fetch('/api/system-health')
+            .then(res => res.json())
+            .then(data => {
+                const dot = document.getElementById('db-status-dot');
+                const statusText = document.getElementById('db-status');
+                if(data.status === 'GREEN') {
+                    dot.className = "w-2 h-2 rounded-full bg-green-500";
+                    statusText.innerHTML = `<span class="w-2 h-2 rounded-full bg-green-500"></span> ONLINE`;
+                    document.getElementById('db-total').innerText = data.total_vectors.toLocaleString();
+                }
+            }).catch(e => console.error("DB Ping failed"));
+
+        // Inject Empty States (Run this once on load)
+        chatContainerTommy.insertAdjacentHTML('beforeend', `
+            <div class="empty-state w-full flex flex-col items-center justify-center pt-20 opacity-50">
+                <p class="text-[10px] font-bold uppercase tracking-widest mb-6">Tommy Architecture</p>
+                <div class="mermaid">
+                    graph LR
+                        A[User Query] --> B[FastAPI]
+                        B --> C[User RNN]
+                        C -->|Extracts Persona| D[Qdrant]
+                        D -->|Injects Facts| E[Groq API]
+                        E --> F[Response]
+                </div>
+            </div>
+        `);
+        chatContainerTimmy.insertAdjacentHTML('beforeend', `
+            <div class="empty-state w-full flex flex-col items-center justify-center pt-20 opacity-50">
+                <p class="text-[10px] font-bold uppercase tracking-widest mb-6">Timmy Architecture</p>
+                <div class="mermaid">
+                    graph LR
+                        A[User Query] --> B[FastAPI]
+                        B --> C[User RNN]
+                        C --> D[Emotional RNN]
+                        D --> E[Qdrant]
+                        E -->|Injects Emotion & Facts| F[Groq API]
+                        F --> G[Response]
+                </div>
+            </div>
+        `);
+
+        // Hide empty states when user starts chatting
+        chatForm.addEventListener('submit', () => {
+            document.querySelectorAll('.empty-state').forEach(el => el.style.display = 'none');
+        });
+    </script>
+</body>
+</html>
